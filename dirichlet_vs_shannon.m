@@ -91,17 +91,39 @@ interp_dirichlet = interp_dirichlet/NechInterp;
 
 
 figure(3);
+
 % Ground truth : deterministic signal is recomputed
-% plot(TimeInterp,signalResampled,'g');
-% hold on;
+plot(TimeInterp,signalResampled,'g');
+hold on;
 % linear interpolation between subsampled points (matlab tracing tool)
-% plot(time,real(reconstruction),'c');
-% hold on;
+plot(time,real(reconstruction),'c');
+hold on;
 % matlab resample command interpolation
-plot(TimeInterp,real(interp_matlab(1:NechInterp)-signalResampled),'r');
+plot(TimeInterp,real(interp_matlab(1:NechInterp)),'r');
+hold on;
+% Shannon interpolation method
+plot(TimeInterp,real(interp_shannon),'b');
+hold on;
+% Dirichlet kernel interpolation method
+plot(TimeInterp,real(interp_dirichlet),'k');
+
+xlabel('Time in s','FontSize',16)
+ylabel('Signal value (no unit)','FontSize',16)
+title('\it{ Various signal reconstruction from fourier transform }','FontSize',16)
+legend('True signal', 'Reconstruction with linear interpolation','Reconstruction with matlab resample function', 'Reconstruction with Shannon interpolation','Reconstruction with Dirichlet interpolation');
+
+figure(4);
+
+% matlab resample command interpolation
+plot(TimeInterp,real(interp_matlab(1:NechInterp))-signalResampled,'r');
 hold on;
 % Shannon interpolation method
 plot(TimeInterp,real(interp_shannon)-signalResampled,'b');
 hold on;
 % Dirichlet kernel interpolation method
 plot(TimeInterp,real(interp_dirichlet)-signalResampled,'k');
+
+xlabel('Time in s','FontSize',16)
+ylabel('Error regarding true signal value (no unit)','FontSize',16)
+title('\it{ Interpolation Error }','FontSize',16)
+legend('Reconstruction with matlab resample function', 'Reconstruction with Shannon interpolation', 'Reconstruction with Dirichlet interpolation');
