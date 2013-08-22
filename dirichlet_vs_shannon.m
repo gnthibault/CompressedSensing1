@@ -12,69 +12,72 @@ F2 = 625;
 FMax = 1500;
 
 time = [0:Te:(Nech-1)*Te];
-timeDiscrete = [1:1:Nech];
+timeDiscrete = [0:1:Nech-1];
 frequency = (timeDiscrete/Nech)*Fe;
 
+%Define the signal here (bandlimited or not ...)
 signal = cos(2*pi*F1*(time))+cos(2*pi*F2*(time))+cos(2*pi*FMax*(time));
 
-%Compute the FFT
+%Compute DFT
 spectrum=zeros(1,Nech);
 for k = timeDiscrete
     for l = timeDiscrete
-        spectrum(k) = spectrum(k) + signal(l)*exp(-2*pi*j*l*k/Nech);
+        spectrum(k+1) = spectrum(k+1) + signal(l+1)*exp(-2*pi*j*l*k/Nech);
     end
 end
+% = spectrum =  signal*exp(-2*pi*j*timeDiscrete'*timeDiscrete/Nech);
 
-%Compute de inverse FFT
+%Compute iDFT
 reconstruction=zeros(1,Nech);
 for k = timeDiscrete
     for l = timeDiscrete
-        reconstruction(k) = reconstruction(k) + spectrum(l)*exp(2*pi*j*l*k/Nech);
+        reconstruction(k+1) = reconstruction(k+1) + spectrum(l+1)*exp(2*pi*j*l*k/Nech);
     end
 end
 reconstruction=reconstruction/Nech;
+% = reconstruction = spectrum*exp(2*pi*j*timeDiscrete'*timeDiscrete/Nech)/Nech;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%    Now interpolation will take place   %%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%Define the new resolution
 Finterp = 6*Fe;
 Tinterp = 1/Finterp;
 TimeInterp = [0:Tinterp:(Nech-1)*Te];
-[m,n] = size(TimeInterp);
-NechInterp = n;
-TimeInterpDiscrete = [1:1:NechInterp];
+NechInterp = length(TimeInterp);
+TimeInterpDiscrete = [0:NechInterp-1];
+fresampled = [0:Finterp/NechInterp:(NechInterp-1)*Finterp/NechInterp];
+
 
 %Compute original signal value without any interpolation
 signalResampled = cos(2*pi*F1*(TimeInterp))+cos(2*pi*F2*(TimeInterp))+cos(2*pi*FMax*(TimeInterp));
+spectrumresampled = zeros(1,NechInterp);
 
 %Compute original signal interpolation through matlab resample function
 [P,Q] = rat(Finterp/Fe);
 interp_matlab = resample(reconstruction,P,Q);
 
-%Compute original signal interpolation by padding the fft and performing
-%inverse fft on the result
-semipaddedsize=floor(NechInterp/2);
-padded_spectrum0 = zeros(1,semipaddedsize);
-padded_spectrum0 = padarray(spectrum(1:Nech/2),[0 semipaddedsize-(Nech/2)],0,'post');
+%Compute original signal interpolation by: first padding the fft
 padded_spectrum = zeros(1,NechInterp);
-padded_spectrum(1:semipaddedsize) = padded_spectrum0;
-padded_spectrum(semipaddedsize+1:NechInterp-1) = conj(fliplr(padded_spectrum0));
-padded_timeDiscrete = [1:1:NechInterp];
+Nzeros = NechInterp-Nech;
+padded_spectrum = ifftshift([ zeros(1,floor(Nzeros/2)) fftshift(spectrum) zeros(1,floor(Nzeros/2)+rem(Nzeros,2)) ]);
 padded_reconstruction = zeros(1,NechInterp);
-for k = padded_timeDiscrete
-    for l = padded_timeDiscrete
-        padded_reconstruction(k) = padded_reconstruction(k) + padded_spectrum(l)*exp(2*pi*j*l*k/NechInterp);
+% Second: computing the iDFT of the padded spectrum
+for k = TimeInterpDiscrete
+    for l = TimeInterpDiscrete
+        padded_reconstruction(k+1) = padded_reconstruction(k+1) + padded_spectrum(l+1)*exp(2*pi*j*l*k/NechInterp);
     end
 end
-padded_reconstruction=padded_reconstruction/(1*Nech);
+padded_reconstruction=padded_reconstruction/Nech;
+% = padded_reconstruction = padded_spectrum*exp(2*pi*j*TimeInterpDiscrete'*TimeInterpDiscrete/NechInterp)/(1*Nech);
 
 
 %Compute original signal interpolation through shannon interpolation method
 interp_shannon=zeros(1,NechInterp);
 for k = TimeInterpDiscrete
     for l = timeDiscrete
-        interp_shannon(k) = interp_shannon(k) + reconstruction(l)*sinc(Fe*(TimeInterp(k)-time(l)));
+        interp_shannon(k+1) = interp_shannon(k+1) + reconstruction(l+1)*sinc(Fe*(TimeInterp(k+1)-time(l+1)));
     end
 end
 
@@ -82,11 +85,11 @@ end
 interp_dirichlet=zeros(1,NechInterp);
 for k = TimeInterpDiscrete
     for l = timeDiscrete
-        if (TimeInterp(k) ~= time(l))
-            x = 2*pi*Fe*(TimeInterp(k)-time(l))/NechInterp;
-            interp_dirichlet(k) = interp_dirichlet(k) + reconstruction(l)*(sin((NechInterp/2 + 0.5)*x)/sin(0.5*x));
+        if (TimeInterp(k+1) ~= time(l+1))
+            x = 2*pi*Fe*(TimeInterp(k+1)-time(l+1))/NechInterp;
+            interp_dirichlet(k+1) = interp_dirichlet(k+1) + reconstruction(l+1)*(sin((NechInterp/2 + 0.5)*x)/sin(0.5*x));
         else
-            interp_dirichlet(k) = NechInterp * reconstruction(l);
+            interp_dirichlet(k+1) = NechInterp * reconstruction(l+1);
             break;
         end
     end
@@ -97,32 +100,8 @@ interp_dirichlet = interp_dirichlet/NechInterp;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%       Let's print out the result       %%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% figure(1);
-% plot(time,signal,'g');
-% hold on;
-% plot(time,real(reconstruction),'r');
  
-spectrumresampled=zeros(1,NechInterp);
-for k = TimeInterpDiscrete
-    for l = TimeInterpDiscrete
-        spectrumresampled(k) = spectrumresampled(k) + signalResampled(l)*exp(-2*pi*j*l*k/NechInterp);
-    end
-end
-
-figure(2);
-plot(abs(spectrumresampled)/6,'g');
-% hold on;
-% plot(abs(fft(padded_reconstruction)),'r');
- hold on;
- plot(abs(padded_spectrum),'b');
-% hold on;
-% plot(abs(spectrum)*5,'c');
-% plot(frequency(1:Nech/2),abs(spectrum(1:Nech/2)));
-% plot(frequency,asbs(spectrum));
-
-
-figure(3);
+figure(1);
 
 % Ground truth : deterministic signal is recomputed
 plot(TimeInterp,signalResampled,'g');
@@ -147,7 +126,7 @@ ylabel('Signal value (no unit)','FontSize',16)
 title('\it{ Various signal reconstruction from fourier transform }','FontSize',16)
 legend('True signal', 'Reconstruction with linear interpolation','Reconstruction with matlab resample function', 'Reconstruction with padded spectrum', 'Reconstruction with Shannon interpolation','Reconstruction with Dirichlet interpolation');
 
-figure(4);
+figure(2);
 
 % matlab resample command interpolation
 plot(TimeInterp,real(interp_matlab(1:NechInterp))-signalResampled,'r');
