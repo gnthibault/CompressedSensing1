@@ -5,11 +5,11 @@ close all;
 
 Fe = 3250;
 Te = 1/Fe;
-Nech = 100;
+Nech = 32;
 
 F1 = 512;
-F2 = 625;
-FMax = 1500;
+F2 = 640;
+FMax = 1536;
 
 time = [0:Te:(Nech-1)*Te];
 timeDiscrete = [0:1:Nech-1];
@@ -19,23 +19,23 @@ frequency = (timeDiscrete/Nech)*Fe;
 signal = cos(2*pi*F1*(time))+cos(2*pi*F2*(time))+cos(2*pi*FMax*(time));
 
 %Compute DFT
-spectrum=zeros(1,Nech);
-for k = timeDiscrete
-    for l = timeDiscrete
-        spectrum(k+1) = spectrum(k+1) + signal(l+1)*exp(-2*pi*j*l*k/Nech);
-    end
-end
-% = spectrum =  signal*exp(-2*pi*j*timeDiscrete'*timeDiscrete/Nech);
+% spectrum=zeros(1,Nech);
+% for k = timeDiscrete
+%     for l = timeDiscrete
+%         spectrum(k+1) = spectrum(k+1) + signal(l+1)*exp(-2*pi*j*l*k/Nech);
+%     end
+% end
+spectrum =  signal*exp(-2*pi*j*timeDiscrete'*timeDiscrete/Nech);
 
 %Compute iDFT
-reconstruction=zeros(1,Nech);
-for k = timeDiscrete
-    for l = timeDiscrete
-        reconstruction(k+1) = reconstruction(k+1) + spectrum(l+1)*exp(2*pi*j*l*k/Nech);
-    end
-end
-reconstruction=reconstruction/Nech;
-% = reconstruction = spectrum*exp(2*pi*j*timeDiscrete'*timeDiscrete/Nech)/Nech;
+% reconstruction=zeros(1,Nech);
+% for k = timeDiscrete
+%     for l = timeDiscrete
+%         reconstruction(k+1) = reconstruction(k+1) + spectrum(l+1)*exp(2*pi*j*l*k/Nech);
+%     end
+% end
+% reconstruction=reconstruction/Nech;
+reconstruction = spectrum*exp(2*pi*j*timeDiscrete'*timeDiscrete/Nech)/Nech;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%    Now interpolation will take place   %%%%%%%%%%%%%%%%%%
@@ -46,6 +46,10 @@ Finterp = 6*Fe;
 Tinterp = 1/Finterp;
 TimeInterp = [0:Tinterp:(Nech-1)*Te];
 NechInterp = length(TimeInterp);
+if(mod(NechInterp-Nech,2)==1)
+    TimeInterp(NechInterp+1) = TimeInterp(NechInterp)+Te;
+    NechInterp = length(TimeInterp);
+end
 TimeInterpDiscrete = [0:NechInterp-1];
 fresampled = [0:Finterp/NechInterp:(NechInterp-1)*Finterp/NechInterp];
 
@@ -64,13 +68,13 @@ Nzeros = NechInterp-Nech;
 padded_spectrum = ifftshift([ zeros(1,floor(Nzeros/2)) fftshift(spectrum) zeros(1,floor(Nzeros/2)+rem(Nzeros,2)) ]);
 padded_reconstruction = zeros(1,NechInterp);
 % Second: computing the iDFT of the padded spectrum
-for k = TimeInterpDiscrete
-    for l = TimeInterpDiscrete
-        padded_reconstruction(k+1) = padded_reconstruction(k+1) + padded_spectrum(l+1)*exp(2*pi*j*l*k/NechInterp);
-    end
-end
-padded_reconstruction=padded_reconstruction/Nech;
-% = padded_reconstruction = padded_spectrum*exp(2*pi*j*TimeInterpDiscrete'*TimeInterpDiscrete/NechInterp)/(1*Nech);
+% for k = TimeInterpDiscrete
+%     for l = TimeInterpDiscrete
+%         padded_reconstruction(k+1) = padded_reconstruction(k+1) + padded_spectrum(l+1)*exp(2*pi*j*l*k/NechInterp);
+%     end
+% end
+% padded_reconstruction=padded_reconstruction/Nech;
+padded_reconstruction = padded_spectrum*exp(2*pi*j*TimeInterpDiscrete'*TimeInterpDiscrete/NechInterp)/(Nech);
 
 
 %Compute original signal interpolation through shannon interpolation method
